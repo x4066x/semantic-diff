@@ -95,8 +95,8 @@ async def structure_text_with_claude(text: str, process_id: str, previous_struct
                 },
                 data={
                     "model": "claude-3-sonnet-20240229",
-                    "max_tokens": 1000,
-                    "temperature": 0,
+                    "max_tokens": 4096,
+                    "temperature": 0.1,
                     "messages": [
                         {"role": "user", "content": prompt}
                     ]
