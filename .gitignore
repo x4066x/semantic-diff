@@ -1,0 +1,37 @@
+# General
+*.log
+*.env
+node_modules/
+.DS_Store
+
+# Python specific
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+db.sqlite3
+ipynb_checkpoints/
+
+# Backend virtual environment
+venv/
+env/
+virtualenv_run/
+
+# Frontend specifics
+.next/
+out/
+.cache/
+dist/
+build/
+
+# Dependencies
+package-lock.json
+yarn.lock
+.pnp/
+.pnp.js
+
+# Debugging logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
