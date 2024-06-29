@@ -40,6 +40,13 @@ class StructuredText(BaseModel):
     type: str
     content: str
 
+    def dict(self):
+        return {
+            "id": self.id,
+            "type": self.type,
+            "content": self.content
+        }
+
 class StructureResponse(BaseModel):
     processId: str
     structuredA: List[StructuredText]
@@ -64,9 +71,20 @@ async def make_request_with_retry(session, url, headers, data, max_retries=3):
                 raise
 
 # Claudeを使用してテキストを構造化する関数
-async def structure_text_with_claude(text: str, process_id: str) -> List[StructuredText]:
+async def structure_text_with_claude(text: str, process_id: str, previous_structure: str = None) -> List[StructuredText]:
     async with aiohttp.ClientSession() as session:
         try:
+            prompt = \
+            """
+            The text shall be organized into meaningful units. Responses should be in JSON format only and divided into id, type, and content, where type is a word that represents the meaning of the content divided throughout the sentence. For example, the same thing in SEASON, such as spring, summer, fall, and winter, should be classified in a detailed snake case, such as season_spring, season_summer, season_autumn season_winter.
+            If any of the types are similar to the previous structuring example, choose the type.\n\n
+            """
+            
+            if previous_structure:
+                prompt += f"Example of previous structuring (Optional) \n {previous_structure}"
+            
+            prompt += f"\n\nHere's the text to structure:\n\n{text}"
+
             raw_response = await make_request_with_retry(
                 session,
                 "https://api.anthropic.com/v1/messages",
@@ -78,69 +96,42 @@ async def structure_text_with_claude(text: str, process_id: str) -> List[Structu
                 data={
                     "model": "claude-3-sonnet-20240229",
                     "max_tokens": 1000,
+                    "temperature": 0,
                     "messages": [
-                        {"role": "user", "content": f"Please structure the following text into sections. Respond with a JSON array where each element has 'id', 'type', and 'content' keys. The 'type' should describe the section(e.g, Abstracts, Introduction, Prior Studies, Assignment, Issue 1, Issue 2, Issue 3, Assertion, Purpose, Proposal, Result of proposal 1, Result of proposal 2, Proposal Result 3,  References). Here's the text:\n\n{text} ["}
+                        {"role": "user", "content": prompt}
                     ]
                 }
             )
             
-            # デバッグ: 生のレスポンスをログに記録
             logger.info(f"Raw API Response: {raw_response}")
             
-            if not raw_response:
-                raise ValueError("Empty response from API")
-            
             response_data = json.loads(raw_response)
-            
-            # デバッグ: パースされたレスポンスデータをログに記録
             logger.info(f"Parsed API Response: {response_data}")
             
             content = response_data["content"][0]["text"]
-            
-            # デバッグ: コンテンツの内容をログに記録
             logger.info(f"Content to parse: {content}")
-
-            json_str = content.split("JSON array:\n\n", 1)[-1].strip()
+            
+            # JSON文字列を抽出する改善されたメソッド
+            json_str = content.split("[", 1)[-1].rsplit("]", 1)[0]
+            json_str = "[" + json_str + "]"
             logger.info(f"Extracted JSON string: {json_str}")
+            
+            structured_text = json.loads(json_str)
+            result = [StructuredText(**item) for item in structured_text]
 
-            structured_text = json.loads(content)
-            return [StructuredText(**item) for item in structured_text]
-        except json.JSONDecodeError as e:
-            error_msg = f"JSON Decode Error: {str(e)}\nRaw response: {raw_response}"
-            logger.error(error_msg)
+            debug_info = f"Structured text:\n{json.dumps(structured_text, ensure_ascii=False, indent=2)}\n"
             with open(f"../memory/{process_id}.log", "a") as f:
-                f.write(f"{datetime.now()}: {error_msg}\n")
-            raise HTTPException(status_code=500, detail=error_msg)
-        except KeyError as e:
-            error_msg = f"KeyError: {str(e)}\nResponse data: {response_data}"
-            logger.error(error_msg)
-            with open(f"../memory/{process_id}.log", "a") as f:
-                f.write(f"{datetime.now()}: {error_msg}\n")
-            raise HTTPException(status_code=500, detail=error_msg)
-        except ValueError as e:
-            error_msg = f"Value Error: {str(e)}"
-            logger.error(error_msg)
-            with open(f"../memory/{process_id}.log", "a") as f:
-                f.write(f"{datetime.now()}: {error_msg}\n")
-            raise HTTPException(status_code=500, detail=error_msg)
-        except asyncio.TimeoutError:
-            error_msg = "Timeout while connecting to Anthropic API after multiple retries"
-            logger.error(error_msg)
-            with open(f"../memory/{process_id}.log", "a") as f:
-                f.write(f"{datetime.now()}: {error_msg}\n")
-            raise HTTPException(status_code=504, detail=error_msg)
-        except aiohttp.ClientResponseError as e:
-            error_msg = f"HTTP error occurred: {e.message}"
-            logger.error(error_msg)
-            with open(f"../memory/{process_id}.log", "a") as f:
-                f.write(f"{datetime.now()}: {error_msg}\n")
-            raise HTTPException(status_code=e.status, detail=error_msg)
+                f.write(f"{datetime.now()}: {debug_info}\n")
+
+            return result
+
+
         except Exception as e:
-            error_msg = f"Unexpected error: {str(e)}\nRaw response: {raw_response if 'raw_response' in locals() else 'N/A'}"
+            error_msg = f"Error: {str(e)}\n"
             logger.error(error_msg)
             with open(f"../memory/{process_id}.log", "a") as f:
                 f.write(f"{datetime.now()}: {error_msg}\n")
-            raise HTTPException(status_code=500, detail=error_msg)
+            raise
 
 @app.post("/structure_texts", response_model=StructureResponse)
 async def structure_texts(request: TextRequest):
@@ -151,24 +142,40 @@ async def structure_texts(request: TextRequest):
         f.write(f"{datetime.now()}: Process started\n")
     
     try:
+        with open(f"../memory/{process_id}.log", "a") as f:
+            f.write(f"{datetime.now()}: Structuring text A\n")
         structured_a = await structure_text_with_claude(request.textA, process_id)
-        structured_b = await structure_text_with_claude(request.textB, process_id)
+        
+        structured_a_dict = [item.dict() for item in structured_a]
+        previous_structure = json.dumps(structured_a_dict, ensure_ascii=False, indent=2)
+        
+        with open(f"../memory/{process_id}.log", "a") as f:
+            f.write(f"{datetime.now()}: Structuring text B\n")
+        structured_b = await structure_text_with_claude(request.textB, process_id, previous_structure)
         
         logger.info(f"Completed process {process_id}")
         with open(f"../memory/{process_id}.log", "a") as f:
             f.write(f"{datetime.now()}: Process completed\n")
         
         return StructureResponse(processId=process_id, structuredA=structured_a, structuredB=structured_b)
+
     except Exception as e:
         error_msg = f"Error in process {process_id}: {str(e)}\n"
-        error_msg += f"Exception type: {type(e).__name__}\n"
-        error_msg += f"Exception traceback:\n{traceback.format_exc()}"
         logger.error(error_msg)
         with open(f"../memory/{process_id}.log", "a") as f:
             f.write(f"{datetime.now()}: {error_msg}\n")
-        if isinstance(e, HTTPException):
-            raise e
-        raise HTTPException(status_code=500, detail=error_msg)
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/debug_info/{process_id}")
+async def get_debug_info(process_id: str):
+    try:
+        log_path = f"../memory/{process_id}.log"
+        last_modified = os.path.getmtime(log_path)
+        with open(log_path, "r") as f:
+            debug_info = f.read()
+        return {"debug_info": debug_info, "last_modified": last_modified}
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Debug info not found")
 
 if __name__ == "__main__":
     import uvicorn

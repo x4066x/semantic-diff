@@ -1,4 +1,3 @@
-// frontend/pages/index.tsx
 import React, { useState, useEffect } from 'react';
 import type { NextPage } from 'next';
 import axios from 'axios';
@@ -33,48 +32,40 @@ const StructuredTextComparison: React.FC = () => {
   const [colorMap, setColorMap] = useState<ColorMap>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const [processId, setProcessId] = useState<string | null>(null);
-  const [processLog, setProcessLog] = useState<string>('');
 
   const handleStructureTexts = async () => {
     if (textA && textB) {
       setIsLoading(true);
       setError(null);
       setProcessId(null);
-      setProcessLog('');
+      setDebugInfo('');
       try {
         const result = await fetchStructuredTexts(textA, textB);
         setStructuredA(result.structuredA);
         setStructuredB(result.structuredB);
         setProcessId(result.processId);
 
+        // ユニークなTypeのみを抽出
         const typesA = new Set(result.structuredA.map(item => item.type));
         const typesB = new Set(result.structuredB.map(item => item.type));
         const commonTypes = [...typesA].filter(type => typesB.has(type));
 
+        // カラーを割り当て
         const newColorMap: ColorMap = {};
         commonTypes.forEach((type, index) => {
           newColorMap[type] = generateColor(index);
         });
         setColorMap(newColorMap);
-
-        // ログファイルの内容を読み込む
-        const logResponse = await axios.get(`/api/read-log?processId=${result.processId}`);
-        setProcessLog(logResponse.data);
-
       } catch (err) {
-        if (axios.isAxiosError(err)) {
-          setError(err.response?.data?.detail || err.message || 'An error occurred while structuring texts.');
-        } else {
-          setError('An unexpected error occurred.');
-        }
-        console.error('Error details:', err);
+        setError(err.response?.data?.detail || err.message || 'Failed to structure texts. Please try again.');
       } finally {
         setIsLoading(false);
       }
     }
   };
-  
+
   const renderStructuredText = (text: StructuredText[]) => {
     return text.map(item => (
       <div key={item.id} className={`p-2 mb-2 rounded ${colorMap[item.type] || 'bg-gray-100'}`}>
@@ -84,20 +75,14 @@ const StructuredTextComparison: React.FC = () => {
     ));
   };
 
-  useEffect(() => {
-    if (processId) {
-      console.log(`Process ID: ${processId}`);
-    }
-  }, [processId]);
-
   return (
     <div className="max-w-6xl mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4 text-center">構造化テキスト比較</h1>
       <div className="flex flex-col md:flex-row mb-4">
         <div className="w-full md:w-1/2 p-2">
           <textarea
-            className="w-full p-2 border rounded"
-            rows={4}
+            className="w-full p-4 border rounded"
+            rows={8}
             placeholder="テキストAを入力"
             value={textA}
             onChange={(e) => setTextA(e.target.value)}
@@ -105,8 +90,8 @@ const StructuredTextComparison: React.FC = () => {
         </div>
         <div className="w-full md:w-1/2 p-2">
           <textarea
-            className="w-full p-2 border rounded"
-            rows={4}
+            className="w-full p-4 border rounded"
+            rows={8}
             placeholder="テキストBを入力"
             value={textB}
             onChange={(e) => setTextB(e.target.value)}
@@ -140,7 +125,7 @@ const StructuredTextComparison: React.FC = () => {
         <div className="mt-4 p-4 bg-gray-100 rounded">
           <h3 className="text-lg font-bold mb-2">デバッグ情報</h3>
           <p>Process ID: {processId}</p>
-          <pre className="mt-2 p-2 bg-white rounded">{processLog}</pre>
+          <pre className="mt-2 p-2 bg-white rounded whitespace-pre-wrap">{debugInfo}</pre>
         </div>
       )}
     </div>

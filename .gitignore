@@ -12,6 +12,10 @@ __pycache__/
 .Python
 db.sqlite3
 ipynb_checkpoints/
+build/
+dist/
+wheels/
+*.egg-info
 
 # Backend virtual environment
 venv/
