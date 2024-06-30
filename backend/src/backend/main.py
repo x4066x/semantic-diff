@@ -76,8 +76,9 @@ async def structure_text_with_claude(text: str, process_id: str, previous_struct
         try:
             prompt = \
             """
-            The text shall be organized into meaningful units. Responses should be in JSON format only and divided into id, type, and content, where type is a word that represents the meaning of the content divided throughout the sentence. For example, the same thing in SEASON, such as spring, summer, fall, and winter, should be classified in a detailed snake case, such as season_spring, season_summer, season_autumn season_winter.
-            If any of the types are similar to the previous structuring example, choose the type.\n\n
+            The sentence should be divided into no more than 10 meaningful units. Answers should be in JSON format only, and should be divided into id, type, and content, where type is a word that represents the meaning of the content divided throughout the sentence. For example, things that are the same in SEASON, such as spring, summer, autumn, and winter, should be classified with detailed snake cases, such as season_spring, season_summer, season_autumn season_winter. It is better to split xxx_research_step, xxx_brain-storming_process if abstract and common names are used.
+            If a meaningful division unit is of the same concept as the previous division example shown next, it should be used.
+            Translated with www.DeepL.com/Translator (free version)
             """
             
             if previous_structure:

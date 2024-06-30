@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { NextPage } from 'next';
 import axios from 'axios';
 import DebugInfo from './api/read-log';
+import { sampleA, sampleB, sampleC, sampleD } from './constant'
 
 interface StructuredText {
   id: number;
@@ -24,23 +25,6 @@ const fetchStructuredTexts = async (textA: string, textB: string): Promise<{ pro
   const response = await axios.post('http://localhost:8000/structure_texts', { textA, textB });
   return response.data;
 };
-
-const sampleA = "\
-日本には四つの季節があります。春、夏、秋、冬です。\
-春は3月から5月頃で、桜が咲き、新学期が始まります。気温が徐々に暖かくなり、新しい生活のスタートの季節です。\
-夏は6月から8月頃で、高温多湿になります。海水浴や花火大会など、多くの夏祭りが行われます。\
-秋は9月から11月頃で、涼しくなり紅葉が美しい季節です。食欲の秋とも呼ばれ、おいしい食べ物が多く出回ります。\
-冬は12月から2月頃で、寒く乾燥した季節です。多くの地域で雪が降り、スキーやスノーボードなどのウィンタースポーツが楽しめます。\
-"
-
-const sampleB = "\
-日本の気候は一般的に四季に分けられますが、その特徴は地域や年によって大きく異なります。また、近年の気候変動の影響で、従来の季節パターンが変化しつつあることにも注意が必要です。\
-春（おおよそ3月〜5月）は北から南へ徐々に暖かくなり、桜前線が移動します。花見や入学式など、新しい始まりを祝う行事が多くあります。一方で、黄砂や花粉症の問題も顕著になります。\
-夏（おおよそ6月〜8月）は梅雨期を経て、蒸し暑い日が続きます。地域により台風の影響を受けることもあります。夏祭りや花火大会が各地で開催され、観光業が活況を呈しますが、熱中症対策も重要になります。\
-秋（おおよそ9月〜11月）は暑さが和らぎ、徐々に涼しくなります。紅葉や秋の味覚を楽しむ観光が盛んになります。文化の日や勤労感謝の日など、伝統と現代が融合した祝日もあります。\
-冬（おおよそ12月〜2月）は地域差が顕著で、北日本では大雪に見般われる一方、南日本では比較的穏やかです。スキー場や温泉地では観光客で賑わいますが、農業や一部の産業では厳しい季節となります。\
-各季節は日本の文化、経済、社会に大きな影響を与えており、季節に応じた行事や習慣が今も大切にされています。同時に、気候変動への適応や、持続可能な季節産業の在り方についての議論も進んでいます。\
-"
 
 const StructuredTextComparison: React.FC = () => {
   const [textA, setTextA] = useState<string>(sampleA);
